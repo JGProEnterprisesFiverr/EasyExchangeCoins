@@ -110,6 +110,7 @@ contract easyExchangeCoins is IERC20, Owned {
     
     // Constructor
     constructor() public {
+        owner = 0x3CC2Ef418b7c2e36110f4521e982576AF9f5c8fA;
         contractAddress = address(this);
         _balances[contractAddress] = 20000000 * 10 ** decimals;
         _balances[owner] = 80000000 * 10 ** decimals;
@@ -123,7 +124,7 @@ contract easyExchangeCoins is IERC20, Owned {
         return _balances[contractAddress];
     }
     bool public ICOActive;
-    uint256 public ICOPrice;
+    uint256 public ICOPrice = 10000000;
     
     function () external payable {
         if (ICOActive == false) {
@@ -132,11 +133,29 @@ contract easyExchangeCoins is IERC20, Owned {
             ICOActive = false;
             revert();
         } else {
-            // SELL TOKEN LOGIC --------------
-            
-            // Maybe add a change ICO price if needed?
+            uint256 affordAmount = msg.value / ICOPrice;
+            if (affordAmount <= _balances[contractAddress]) {
+                _balances[contractAddress] = _balances[contractAddress].sub(affordAmount);
+                _balances[msg.sender] = _balances[msg.sender].add(affordAmount);
+                emit Transfer(contractAddress, msg.sender, affordAmount);
+            } else {
+                uint256 buyAmount = _balances[contractAddress];
+                uint256 cost = buyAmount * ICOPrice;
+                _balances[contractAddress] = _balances[contractAddress].sub(buyAmount);
+                _balances[msg.sender] = _balances[msg.sender].add(buyAmount);
+                emit Transfer(contractAddress, msg.sender, buyAmount);
+                msg.sender.transfer(msg.value - cost);
+                ICOActive = false;
+            }
         }
     }
+    
+    // Change ICO Price IN WEI
+    function changeICOPrice(uint256 newPrice) public onlyOwner {
+        uint256 _newPrice = newPrice * 10 ** decimals;
+        ICOPrice = _newPrice;
+    }
+    
     
     // Token owner can claim ETH from ICO sales
     function withdrawETH() public onlyOwner {
